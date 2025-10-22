@@ -1302,6 +1302,563 @@ def bypass_shorterme(link: str):
 
     return None, "❌ shorter.me: could not extract original URL."
 
+# ----------------------------
+# tiny.cc bypass
+# ----------------------------
+
+def bypass_tinycc(link: str):
+    """
+    Best-effort tiny.cc unshortener.
+    Tries both https and http, with and without trailing '=' (preview page).
+    Returns (final_url, None) or (None, error_msg).
+    """
+    if not link:
+        return None, "❌ Empty tiny.cc link."
+
+    # Normalize into candidates to try (order matters)
+    # Example input might be https://tiny.cc/lp3u001 but tiny.cc often issues HTTP redirects.
+    from urllib.parse import urlparse, urlunparse
+
+    def build_variants(raw):
+        if not raw.startswith("http"):
+            raw = "https://" + raw
+        p = urlparse(raw)
+        if p.netloc.lower() != "tiny.cc":
+            # not tiny.cc -> nothing to do
+            return [raw]
+
+        path = p.path.rstrip("/")
+        https_base = urlunparse(("https", "tiny.cc", path, "", "", ""))
+        http_base  = urlunparse(("http",  "tiny.cc", path, "", "", ""))
+
+        variants = [
+            https_base,           # https
+            http_base,            # http
+            https_base + "=",     # https preview
+            http_base + "=",      # http preview
+        ]
+        # Also try with a trailing slash (rarely needed, but harmless)
+        variants += [v + "/" for v in variants if not v.endswith("/")]
+        # De-dupe preserving order
+        seen, ordered = set(), []
+        for v in variants:
+            if v not in seen:
+                seen.add(v)
+                ordered.append(v)
+        return ordered
+
+    candidates = build_variants(link)
+
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "*/*",
+        "Referer": "https://tiny.cc/"
+    }
+
+    # Helper: parse 'Original URL ... <url>' from HTML like the snippet you shared
+    def parse_original_from_html(html_text: str):
+        if not html_text:
+            return None
+        # 1) Look for explicit "Original URL" label then capture the next URL
+        m = re.search(r'Original\s+URL[\s:\-]*[^\n\r\t]*?(https?://[^\s"\'<>{}\)]+)', html_text, flags=re.I)
+        if m:
+            return m.group(1).strip()
+        # 2) If BS4 available, scan nearby nodes
+        if BS4_AVAILABLE:
+            try:
+                soup = BeautifulSoup(html_text, "html.parser")
+                # scan text nodes for the label, then sibling
+                for node in soup.find_all(text=lambda t: t and "Original URL" in t):
+                    sib = node.parent.find_next_sibling()
+                    if sib:
+                        txt = sib.get_text(" ", strip=True)
+                        m2 = re.search(r'(https?://[^\s"\'<>{}\)]+)', txt)
+                        if m2:
+                            return m2.group(1).strip()
+                # try common containers
+                for sel in ("#recent", ".recent-item", ".recent-action-panel", ".origurl", ".long-url", "#origurl"):
+                    el = soup.select_one(sel)
+                    if el:
+                        txt = el.get_text(" ", strip=True)
+                        m3 = re.search(r'(https?://[^\s"\'<>{}\)]+)', txt)
+                        if m3 and "tiny.cc" not in m3.group(1).lower():
+                            return m3.group(1).strip()
+            except Exception:
+                pass
+        # 3) As a last HTML fallback, pick the first non-tiny.cc https URL on the page
+        for m4 in re.findall(r'(https?://[^\s"\'<>{}\)]+)', html_text):
+            if "tiny.cc" not in m4.lower():
+                return m4.strip()
+        return None
+
+    # Attempt each candidate
+    for url in candidates:
+        # A) Try to read Location without following redirects
+        try:
+            r = requests.head(url, headers=headers, allow_redirects=False, timeout=8)
+            if r.status_code in (301, 302, 303, 307, 308):
+                loc = r.headers.get("Location")
+                if loc and "tiny.cc" not in loc.lower():
+                    return loc.strip(), None
+        except Exception:
+            pass
+
+        try:
+            r = requests.get(url, headers=headers, allow_redirects=False, timeout=10)
+            if r.status_code in (301, 302, 303, 307, 308):
+                loc = r.headers.get("Location")
+                if loc and "tiny.cc" not in loc.lower():
+                    return loc.strip(), None
+        except Exception as e:
+            # keep trying next variant
+            continue
+
+        # B) Follow redirects (sometimes they only show up when following)
+        try:
+            r2 = requests.get(url, headers=headers, allow_redirects=True, timeout=12)
+            final = getattr(r2, "url", None)
+            if final and "tiny.cc" not in final.lower():
+                return final, None
+        except Exception:
+            pass
+
+        # C) Parse HTML (preview/Original URL UI)
+        try:
+            html = r.text if 'r' in locals() and r is not None and hasattr(r, "text") else ""
+            if not html:
+                # if we only did HEAD above, fetch body for parse
+                resp = requests.get(url, headers=headers, allow_redirects=False, timeout=10)
+                html = resp.text or ""
+            found = parse_original_from_html(html)
+            if found:
+                return found, None
+        except Exception:
+            pass
+
+        # D) If Cloudflare/JS challenge, optionally try Playwright
+        html_lower = (html or "").lower()
+        if any(s in html_lower for s in ("cloudflare", "please enable javascript", "attention required", "cf-chl")):
+            if PLAYWRIGHT_AVAILABLE:
+                try:
+                    from playwright.sync_api import sync_playwright
+                    with sync_playwright() as p:
+                        browser = p.chromium.launch(headless=True)
+                        context = browser.new_context(user_agent=USER_AGENT)
+                        page = context.new_page()
+                        page.goto(url, wait_until="domcontentloaded", timeout=45000)
+                        page.wait_for_timeout(2500)
+                        final_url = page.url
+                        content = page.content()
+                        browser.close()
+                        if final_url and "tiny.cc" not in final_url.lower():
+                            return final_url, None
+                        # parse preview content
+                        cand = parse_original_from_html(content or "")
+                        if cand:
+                            return cand, None
+                except Exception:
+                    pass
+            # If no Playwright, fall through to next variant
+
+    return None, "❌ tiny.cc: could not extract original URL (tried http/https and preview)."
+
+# ----------------------------
+# tinylink.onl bypass
+# ----------------------------
+def bypass_tinylinkonl(link: str):
+    """
+    Unshorten tinylink.onl short links by extracting meta refresh or JS longUrl var.
+    Returns (final_url, None) or (None, error_msg).
+    """
+    if not link:
+        return None, "❌ Empty tinylink.onl link."
+    if not link.startswith("http"):
+        link = "https://" + link
+
+    headers = {"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"}
+
+    # 0) Quick HEAD check for Location
+    try:
+        h = requests.head(link, headers=headers, allow_redirects=False, timeout=8)
+        if h is not None and h.status_code in (301,302,303,307,308):
+            loc = h.headers.get("Location")
+            if loc and "tinylink.onl" not in loc.lower():
+                return loc, None
+    except Exception:
+        pass
+
+    # 1) GET the page (no redirect) and inspect HTML
+    try:
+        r = requests.get(link, headers=headers, allow_redirects=False, timeout=12)
+    except Exception as e:
+        return None, f"❌ tinylink.onl request error: {e}"
+
+    # If server returns a redirect header, honor it
+    if r.status_code in (301,302,303,307,308):
+        loc = r.headers.get("Location")
+        if loc and "tinylink.onl" not in loc.lower():
+            return loc, None
+
+    html = r.text or ""
+
+    # 2) meta refresh extraction: <meta http-equiv="refresh" content="10;https://..."> or url=...
+    try:
+        m_meta = re.search(r'<meta[^>]+http-equiv=["\']?refresh["\']?[^>]*content=["\']?([^"\'>]+)["\']?', html, flags=re.I)
+        if m_meta:
+            content = m_meta.group(1)
+            # find URL part
+            m_url = re.search(r'url\s*=\s*(.+)', content, flags=re.I)
+            if not m_url:
+                # sometimes content is like "10;https://..."
+                m_url = re.search(r';\s*(https?://[^\s"\']+)', content, flags=re.I)
+            if m_url:
+                candidate = m_url.group(1).strip().strip('\'"')
+                # normalize candidate if relative
+                if candidate and "tinylink.onl" not in candidate.lower():
+                    return candidate, None
+    except Exception:
+        pass
+
+    # 3) JavaScript variable extraction: var longUrl = "https:\/\/example.com\/path";
+    try:
+        # match "longUrl" var with either single or double quotes, allow escaping
+        m_js = re.search(r'var\s+longUrl\s*=\s*["\']([^"\']+)["\']', html, flags=re.I)
+        if m_js:
+            raw = m_js.group(1)
+            # unescape common JS escapes (\/ -> /)
+            candidate = raw.replace('\\/', '/').strip()
+            if candidate and candidate.startswith("http") and "tinylink.onl" not in candidate.lower():
+                return candidate, None
+    except Exception:
+        pass
+
+    # 4) Fallback: first external https URL on page that's not the short domain
+    try:
+        for u in re.findall(r'(https?://[^\s"\'<>]+)', html):
+            if "tinylink.onl" not in u.lower():
+                return u, None
+    except Exception:
+        pass
+
+    # 5) Optional Playwright fallback (shouldn't be necessary for this site,
+    # but kept for parity with other handlers)
+    if PLAYWRIGHT_AVAILABLE:
+        try:
+            from playwright.sync_api import sync_playwright
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                context = browser.new_context(user_agent=USER_AGENT)
+                page = context.new_page()
+                page.goto(link, wait_until="networkidle", timeout=30000)
+                # wait a little for animations/redirect scripts to populate
+                page.wait_for_timeout(1200)
+                content = page.content() or ""
+                browser.close()
+
+                # repeat the same extraction on rendered content
+                m_js2 = re.search(r'var\s+longUrl\s*=\s*["\']([^"\']+)["\']', content, flags=re.I)
+                if m_js2:
+                    candidate = m_js2.group(1).replace('\\/', '/').strip()
+                    if candidate and "tinylink.onl" not in candidate.lower():
+                        return candidate, None
+
+                m_meta2 = re.search(r'<meta[^>]+http-equiv=["\']?refresh["\']?[^>]*content=["\']?([^"\'>]+)["\']?', content, flags=re.I)
+                if m_meta2:
+                    c = m_meta2.group(1)
+                    m_url2 = re.search(r'url\s*=\s*(.+)', c, flags=re.I) or re.search(r';\s*(https?://[^\s"\']+)', c, flags=re.I)
+                    if m_url2:
+                        candidate = m_url2.group(1).strip().strip('\'"')
+                        if candidate and "tinylink.onl" not in candidate.lower():
+                            return candidate, None
+        except Exception as e:
+            # don't leak huge internal trace here; give compact message
+            return None, f"❌ tinylink.onl Playwright error: {e}"
+
+    return None, "❌ tinylink.onl: could not extract original URL."
+
+# ----------------------------
+# tinyurl.com bypass
+# ----------------------------
+
+def bypass_tinyurl(link: str):
+    """
+    Unshorten tinyurl.com links.
+    Strategy:
+      1) HEAD for Location
+      2) GET without redirects and check:
+         - preview page (alias + '+') which often shows original URL
+         - inline JSON like {"data":[{"url":"..."}]}
+         - canonical / og / meta refresh
+      3) Follow redirects (allow_redirects=True) as last resort
+    Returns (final_url, None) or (None, error_msg).
+    """
+    if not link:
+        return None, "❌ Empty tinyurl link."
+    if not link.startswith("http"):
+        link = "https://" + link
+
+    headers = {"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"}
+
+    # 1) HEAD quick check for Location header
+    try:
+        try:
+            h = requests.head(link, headers=headers, allow_redirects=False, timeout=8)
+        except Exception:
+            h = None
+        if h is not None and h.status_code in (301,302,303,307,308):
+            loc = h.headers.get("Location")
+            if loc and "tinyurl.com" not in loc.lower():
+                return loc, None
+    except Exception:
+        pass
+
+    # helper to parse original URL from HTML content
+    def parse_original_from_html(html_text: str):
+        if not html_text:
+            return None
+
+        # 1) Try extracting JSON snippet: {"data":[{"url":"https://..."}]}
+        try:
+            m = re.search(r'"data"\s*:\s*\[\s*\{\s*"url"\s*:\s*"([^"]+)"', html_text, flags=re.I)
+            if m:
+                cand = m.group(1).replace('\\/', '/').strip()
+                if cand and not cand.lower().startswith("https://tinyurl.com"):
+                    return cand
+        except Exception:
+            pass
+
+        # 2) Meta/canonical/og
+        try:
+            if BS4_AVAILABLE:
+                soup = BeautifulSoup(html_text, "html.parser")
+                # canonical link
+                link_tag = soup.find("link", rel="canonical")
+                if link_tag and link_tag.get("href"):
+                    href = link_tag["href"].strip()
+                    if href and "tinyurl.com" not in href.lower():
+                        return href
+                og = soup.find("meta", property="og:url")
+                if og and og.get("content"):
+                    href = og["content"].strip()
+                    if href and "tinyurl.com" not in href.lower():
+                        return href
+                # meta refresh
+                meta = soup.find("meta", attrs={"http-equiv": "refresh"})
+                if meta and meta.get("content"):
+                    c = meta["content"]
+                    m2 = re.search(r'url\s*=\s*(.+)', c, flags=re.I) or re.search(r';\s*(https?://[^\s"\']+)', c, flags=re.I)
+                    if m2:
+                        candidate = m2.group(1).strip().strip('\'"')
+                        if candidate and "tinyurl.com" not in candidate.lower():
+                            return candidate
+                # preview area: sometimes preview shows original link in an <a> or a .original-url element
+                # search for anchor tags that are not tinyurl
+                for a in soup.find_all("a", href=True):
+                    href = a["href"].strip()
+                    if href.startswith("http") and "tinyurl.com" not in href.lower():
+                        return href
+        except Exception:
+            pass
+
+        # 3) Generic regex fallback: find first external https URL
+        try:
+            for u in re.findall(r'(https?://[^\s"\'<>]+)', html_text):
+                if "tinyurl.com" not in u.lower():
+                    return u
+        except Exception:
+            pass
+
+        return None
+
+    # 2) GET without following redirects (so we can check preview and inline JSON)
+    try:
+        r = requests.get(link, headers=headers, allow_redirects=False, timeout=12)
+    except Exception as e:
+        return None, f"❌ tinyurl request error: {e}"
+
+    # If server returned a redirect header, honor it (fast)
+    if r.status_code in (301,302,303,307,308):
+        loc = r.headers.get("Location")
+        if loc and "tinyurl.com" not in loc.lower():
+            return loc, None
+
+    html = r.text or ""
+
+    # 2a) Try the preview variant (tinyurl supports preview via trailing '+')
+    try:
+        # construct preview url -> tinyurl.com/<alias>+
+        parsed = urlparse(link)
+        path = parsed.path or ""
+        if path:
+            # ensure no trailing slash
+            alias = path.strip("/")
+            preview_url = f"{parsed.scheme}://{parsed.netloc}/{alias}+"
+            try:
+                pr = requests.get(preview_url, headers=headers, allow_redirects=False, timeout=10)
+                # parse preview page for original
+                preview_html = pr.text or ""
+                found = parse_original_from_html(preview_html)
+                if found:
+                    return found, None
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    # 2b) Parse current HTML for embedded JSON/meta/original link
+    found = parse_original_from_html(html)
+    if found:
+        return found, None
+
+    # 3) Last resort: follow redirects (requests will return the final location)
+    try:
+        r2 = requests.get(link, headers=headers, allow_redirects=True, timeout=12)
+        final = getattr(r2, "url", None)
+        if final and "tinyurl.com" not in final.lower():
+            return final, None
+    except Exception:
+        pass
+
+    return None, "❌ tinyurl: could not extract original URL."
+
+# ----------------------------
+# v.gd bypass
+# ----------------------------
+
+def bypass_vgd(link: str):
+    """
+    Unshorten v.gd links (v.gd/xYZ).
+    Returns (final_url, None) or (None, error_msg).
+    """
+    if not link:
+        return None, "❌ Empty v.gd link."
+    if not link.startswith("http"):
+        link = "https://" + link
+
+    headers = {"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"}
+
+    # 1) HEAD quick check
+    try:
+        h = requests.head(link, headers=headers, allow_redirects=False, timeout=8)
+        if h is not None and h.status_code in (301,302,303,307,308):
+            loc = h.headers.get("Location")
+            if loc and "v.gd" not in loc.lower():
+                return loc, None
+    except Exception:
+        pass
+
+    # 2) GET page HTML
+    try:
+        r = requests.get(link, headers=headers, allow_redirects=False, timeout=12)
+    except Exception as e:
+        return None, f"❌ v.gd request error: {e}"
+
+    # honor redirect header if present
+    if r.status_code in (301,302,303,307,308):
+        loc = r.headers.get("Location")
+        if loc and "v.gd" not in loc.lower():
+            return loc, None
+
+    html = r.text or ""
+
+    # 3) meta refresh
+    try:
+        m_meta = re.search(r'<meta[^>]+http-equiv=["\']?refresh["\']?[^>]*content=["\']?([^"\'>]+)["\']?', html, flags=re.I)
+        if m_meta:
+            content = m_meta.group(1)
+            m_url = re.search(r'url\s*=\s*(.+)', content, flags=re.I) or re.search(r';\s*(https?://[^\s"\']+)', content, flags=re.I)
+            if m_url:
+                cand = m_url.group(1).strip().strip('\'"')
+                if cand and "v.gd" not in cand.lower():
+                    return cand, None
+    except Exception:
+        pass
+
+    # 4) JS variable longUrl
+    try:
+        m_js = re.search(r'var\s+longUrl\s*=\s*["\']([^"\']+)["\']', html, flags=re.I)
+        if m_js:
+            candidate = m_js.group(1).replace('\\/', '/').strip()
+            if candidate and "v.gd" not in candidate.lower():
+                return candidate, None
+    except Exception:
+        pass
+
+    # 5) BeautifulSoup: look for #origurl or text "Your shortened URL goes to"
+    try:
+        if BS4_AVAILABLE:
+            soup = BeautifulSoup(html, "html.parser")
+            # common id in the page
+            el = soup.select_one("#origurl")
+            if el:
+                txt = el.get_text(" ", strip=True)
+                m = re.search(r'(https?://[^\s"\'<>{}\)]+)', txt)
+                if m:
+                    cand = m.group(1).strip()
+                    if "v.gd" not in cand.lower():
+                        return cand, None
+
+            # fallback: look for phrase and following anchor
+            for node in soup.find_all(string=re.compile(r'Your shortened URL goes to', flags=re.I)):
+                parent = node.parent
+                if parent:
+                    a = parent.find_next("a", href=True)
+                    if a and isinstance(a.get("href"), str):
+                        href = a["href"].strip()
+                        if href and "v.gd" not in href.lower():
+                            return href, None
+                    # else try text within parent
+                    m2 = re.search(r'(https?://[^\s"\'<>{}\)]+)', parent.get_text(" ", strip=True))
+                    if m2:
+                        cand = m2.group(1).strip()
+                        if "v.gd" not in cand.lower():
+                            return cand, None
+
+            # generic anchor fallback: first external href
+            for a in soup.find_all("a", href=True):
+                href = a["href"].strip()
+                if href.startswith("http") and "v.gd" not in href.lower():
+                    return href, None
+    except Exception:
+        pass
+
+    # 6) regex fallback: find first external https URL
+    try:
+        for u in re.findall(r'(https?://[^\s"\'<>]+)', html):
+            if "v.gd" not in u.lower():
+                return u, None
+    except Exception:
+        pass
+
+    # 7) Playwright fallback (shouldn't be necessary but included)
+    if PLAYWRIGHT_AVAILABLE:
+        try:
+            from playwright.sync_api import sync_playwright
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                context = browser.new_context(user_agent=USER_AGENT)
+                page = context.new_page()
+                page.goto(link, wait_until="networkidle", timeout=30000)
+                page.wait_for_timeout(800)
+                content = page.content() or ""
+                browser.close()
+                # repeat simple regex
+                m = re.search(r'(https?://[^\s"\'<>]+)', content)
+                if m and "v.gd" not in m.group(1).lower():
+                    return m.group(1).strip(), None
+        except Exception as e:
+            return None, f"❌ v.gd Playwright error: {e}"
+
+    # 8) last resort: follow redirects
+    try:
+        final_resp = requests.get(link, headers=headers, allow_redirects=True, timeout=12)
+        final = getattr(final_resp, "url", None)
+        if final and "v.gd" not in final.lower():
+            return final, None
+    except Exception:
+        pass
+
+    return None, "❌ v.gd: could not extract original URL."
 
 
 # ----------------------------
@@ -1387,6 +1944,18 @@ def auto_detect_bypass(link: str):
     
     if "shorter.me" in link_lower:
         return bypass_shorterme(link)
+    
+    if "tiny.cc" in link_lower:
+        return bypass_tinycc(link)
+    
+    if "tinylink.onl" in link_lower:
+        return bypass_tinylinkonl(link)
+    
+    if "tinyurl.com" in link_lower:
+        return bypass_tinyurl(link)
+    
+    if "v.gd" in link_lower:
+        return bypass_vgd(link)
 
     return None, "❌ Unsupported platform. Add support for this service."
 
