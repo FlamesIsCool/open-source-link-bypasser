@@ -1001,59 +1001,306 @@ def register_bypass_routes(app, namespace):
 
 def bypass_isgd(link: str):
     """
-    Bypass / unshorten an is.gd short link.
-    Returns the original destination URL shown in <div id="origurl">.
-    Example: https://is.gd/hiir0o -> https://linkvertise.com/212414/poppy-playtime-addon
+    Unshorten an is.gd URL by reading the Location header (no redirect follow).
+    Returns (final_url, None) on success, or (None, error_msg).
     """
     if not link:
         return None, "❌ Empty is.gd link."
 
-    # Normalize link (add scheme if missing)
+    if not link.startswith("http"):
+        link = "https://" + link
+
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "*/*",
+        "Referer": "https://is.gd/"
+    }
+
+    try:
+        # 1) Try GET without following redirects — Location header usually contains target
+        res = requests.get(link, headers=headers, allow_redirects=False, timeout=10)
+    except Exception as e:
+        return None, f"❌ is.gd request error: {e}"
+
+    # If server replied with a redirect, Location is the destination
+    if res.status_code in (301, 302, 303, 307, 308):
+        target = res.headers.get("Location")
+        if target:
+            return target.strip(), None
+
+    # 2) Fallback: maybe it returned a page showing the destination text
+    html = res.text or ""
+    if BS4_AVAILABLE:
+        try:
+            soup = BeautifulSoup(html, "html.parser")
+            div = soup.find("div", id="origurl")
+            if div and "goes to:" in div.text:
+                m = re.search(r'goes to:\s*(https?://\S+)', div.text)
+                if m:
+                    return m.group(1).strip(), None
+        except Exception:
+            pass
+
+    # 3) Regex fallback on page text
+    m = re.search(r'Your shortened URL goes to:\s*(https?://[^\s"<]+)', html)
+    if m:
+        return m.group(1).strip(), None
+
+    return None, "❌ is.gd: could not extract original URL (no redirect or visible origin)."
+
+# ----------------------------
+# rebrand.ly bypass
+# ----------------------------
+
+def bypass_rebrandly(link: str):
+    """
+    Unshorten a rebrand.ly link and return the destination URL.
+    Strategies (in order):
+      1) HEAD GET with allow_redirects=False -> Location header
+      2) GET page and look for JSON or HTML markers (og:url, meta refresh, divs, inline JSON)
+      3) Regex fallback searching for https://... near 'destination'/'destinationUrl' words
+    Returns (final_url, None) or (None, error_msg).
+    """
+    if not link:
+        return None, "❌ Empty rebrand.ly link."
+
+    # Normalize
     if not link.startswith("http"):
         link = "https://" + link
 
     headers = {
         "User-Agent": USER_AGENT,
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Referer": "https://is.gd/"
+        "Referer": "https://rebrand.ly/"
     }
 
+    # 1) Try HEAD/GET without redirects to catch Location header quickly
     try:
-        res = requests.get(link, headers=headers, timeout=10)
-        res.raise_for_status()
-    except Exception as e:
-        return None, f"❌ is.gd request error: {e}"
+        r = requests.head(link, headers=headers, allow_redirects=False, timeout=10)
+    except Exception:
+        r = None
 
-    html = res.text
-
-    # --- Method 1: scrape <div id="origurl">Your shortened URL goes to: <URL> ---
-    if BS4_AVAILABLE:
-        try:
-            soup = BeautifulSoup(html, "html.parser")
-            div = soup.find("div", id="origurl")
-            if div and "goes to:" in div.text:
-                # Extract URL part after "goes to:"
-                text = div.text.strip()
-                m = re.search(r'goes to:\s*(https?://\S+)', text)
-                if m:
-                    return m.group(1).strip(), None
-        except Exception:
-            pass
-
-    # --- Method 2: regex fallback ---
-    m = re.search(r'Your shortened URL goes to:\s*(https?://[^\s"<]+)', html)
-    if m:
-        return m.group(1).strip(), None
-
-    # --- Method 3: HEAD request follow redirects (final fallback) ---
+    # If HEAD gave redirect, return Location
     try:
-        head = requests.head(link, allow_redirects=True, timeout=8)
-        if head.url and head.url != link:
-            return head.url, None
+        if r is not None and r.status_code in (301, 302, 303, 307, 308):
+            loc = r.headers.get("Location")
+            if loc:
+                return loc.strip(), None
     except Exception:
         pass
 
-    return None, "❌ is.gd: could not extract original URL."
+    # If HEAD returned 405 or similar, try GET without following redirects
+    try:
+        res = requests.get(link, headers=headers, allow_redirects=False, timeout=10)
+    except Exception as e:
+        return None, f"❌ rebrand.ly request error: {e}"
+
+    # If server responded with redirect, use Location header
+    if res.status_code in (301, 302, 303, 307, 308):
+        loc = res.headers.get("Location")
+        if loc:
+            return loc.strip(), None
+
+    html = res.text or ""
+
+    # 2) If BeautifulSoup available, try canonical/og/meta refresh and inline JSON
+    if BS4_AVAILABLE:
+        try:
+            soup = BeautifulSoup(html, "html.parser")
+
+            # canonical / og:url
+            link_tag = soup.find("link", rel="canonical")
+            if link_tag and link_tag.get("href"):
+                href = link_tag["href"].strip()
+                # If canonical is not the short link itself, return it
+                if href and not href.endswith(link.split("/")[-1]):
+                    return href, None
+
+            og = soup.find("meta", property="og:url")
+            if og and og.get("content"):
+                return og["content"].strip(), None
+
+            # meta refresh
+            meta = soup.find("meta", attrs={"http-equiv": "refresh"})
+            if meta and meta.get("content"):
+                m = re.search(r'url=(.+)', meta["content"], flags=re.IGNORECASE)
+                if m:
+                    return m.group(1).strip().strip("'\""), None
+
+            # Search for inline JSON that may contain destination or "destination"
+            # Look for <script> tags containing "destination" or "destinationUrl"
+            for script in soup.find_all("script"):
+                txt = (script.string or "") if script else ""
+                if "destination" in txt or "destinationUrl" in txt or "destination_url" in txt:
+                    m = re.search(r'(https?://[^\s"\'<>{}\)]+)', txt)
+                    if m:
+                        return m.group(1).strip(), None
+
+        except Exception:
+            pass
+
+    # 3) Regex fallback: find 'destination' or 'destinationUrl' nearby a URL
+    # Look for patterns like '"destination":"https://..."' or 'destinationUrl":"https://...'
+    m = re.search(r'"destination"\s*:\s*"([^"]+)"', html)
+    if not m:
+        m = re.search(r'"destinationUrl"\s*:\s*"([^"]+)"', html, flags=re.IGNORECASE)
+    if not m:
+        m = re.search(r'destination_url["\']?\s*[:=]\s*["\'](https?://[^"\']+)["\']', html, flags=re.IGNORECASE)
+    if m:
+        return m.group(1).strip(), None
+
+    # 4) General https URL fallback: find a visible https://... in the page and try to guess
+    # but prefer ones near the words 'destination' or 'url'
+    # Search windows of text around 'destination' occurrences
+    lower = html.lower()
+    for keyword in ("destination", "destinationurl", "target", "redirect"):
+        for idx in [m.start() for m in re.finditer(keyword, lower)]:
+            start = max(0, idx - 300)
+            end = min(len(html), idx + 300)
+            window = html[start:end]
+            mm = re.search(r'(https?://[^\s"\'<>{}\)]+)', window)
+            if mm:
+                return mm.group(1).strip(), None
+
+    # 5) Last resort: try a GET that follows redirects but DO NOT fetch the final content (just let requests follow)
+    # We do this as a last-ditch attempt but we won't raise on status errors.
+    try:
+        r2 = requests.get(link, headers=headers, allow_redirects=True, timeout=10)
+        final = getattr(r2, "url", None)
+        if final and final != link:
+            return final, None
+    except Exception:
+        pass
+
+    return None, "❌ rebrand.ly: could not extract original URL."
+
+# ----------------------------
+# shorter.me bypass
+# ----------------------------
+
+def bypass_shorterme(link: str):
+    """
+    Unshorten a shorter.me link and return the destination URL.
+    Strategies (in order):
+      1) HEAD/GET without redirects -> Location header
+      2) Parse HTML (canonical / og:url / meta refresh / inline JSON)
+      3) Keyword-based regex window search
+      4) Final fallback: allow redirects and return final URL
+    Returns (final_url, None) or (None, error_msg).
+    """
+    if not link:
+        return None, "❌ Empty shorter.me link."
+
+    # Normalize
+    if not link.startswith("http"):
+        link = "https://" + link
+
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Referer": "https://shorter.me/"
+    }
+
+    # 1) Try HEAD (fast) to catch Location header
+    try:
+        try:
+            r = requests.head(link, headers=headers, allow_redirects=False, timeout=8)
+        except Exception:
+            r = None
+
+        if r is not None and r.status_code in (301, 302, 303, 307, 308):
+            loc = r.headers.get("Location")
+            if loc:
+                return loc.strip(), None
+    except Exception:
+        pass
+
+    # 2) Try GET without following redirects (sometimes returns a page with info)
+    try:
+        res = requests.get(link, headers=headers, allow_redirects=False, timeout=10)
+    except Exception as e:
+        return None, f"❌ shorter.me request error: {e}"
+
+    if res.status_code in (301, 302, 303, 307, 308):
+        loc = res.headers.get("Location")
+        if loc:
+            return loc.strip(), None
+
+    html = res.text or ""
+
+    # 3) Parse HTML intelligently if BS4 available
+    if BS4_AVAILABLE:
+        try:
+            soup = BeautifulSoup(html, "html.parser")
+
+            # canonical / og:url
+            c = soup.find("link", rel="canonical")
+            if c and c.get("href"):
+                href = c["href"].strip()
+                if href and href != link:
+                    return href, None
+
+            og = soup.find("meta", property="og:url")
+            if og and og.get("content"):
+                return og["content"].strip(), None
+
+            # meta refresh
+            meta = soup.find("meta", attrs={"http-equiv": "refresh"})
+            if meta and meta.get("content"):
+                m = re.search(r'url=(.+)', meta["content"], flags=re.IGNORECASE)
+                if m:
+                    return m.group(1).strip().strip("'\""), None
+
+            # Search inline scripts for "destination", "target", "redirect" etc.
+            for script in soup.find_all("script"):
+                txt = script.string or ""
+                if not txt:
+                    continue
+                if any(k in txt for k in ("destination", "destinationUrl", "redirect", "target")):
+                    m = re.search(r'(https?://[^\s"\'<>{}\)]+)', txt)
+                    if m:
+                        return m.group(1).strip(), None
+
+            # check for visible elements that might show the target (common id/class patterns)
+            possible = soup.select_one("#origurl, .origurl, .destination, #destination")
+            if possible and possible.get_text(strip=True):
+                m = re.search(r'(https?://[^\s"\'<>{}\)]+)', possible.get_text())
+                if m:
+                    return m.group(1).strip(), None
+
+        except Exception:
+            pass
+
+    # 4) Regex fallback: search for "destination" JSON or nearby url strings
+    m = re.search(r'"destination"\s*:\s*"([^"]+)"', html)
+    if not m:
+        m = re.search(r'"destinationUrl"\s*:\s*"([^"]+)"', html, flags=re.IGNORECASE)
+    if not m:
+        m = re.search(r'destination_url["\']?\s*[:=]\s*["\'](https?://[^"\']+)["\']', html, flags=re.IGNORECASE)
+    if m:
+        return m.group(1).strip(), None
+
+    # 5) Keyword-window search for any https://... near words like 'destination' or 'redirect'
+    lower = html.lower()
+    for keyword in ("destination", "redirect", "target", "url"):
+        for mm in re.finditer(keyword, lower):
+            start = max(0, mm.start() - 300)
+            end = min(len(html), mm.end() + 300)
+            window = html[start:end]
+            found = re.search(r'(https?://[^\s"\'<>{}\)]+)', window)
+            if found:
+                return found.group(1).strip(), None
+
+    # 6) Last resort: follow redirects (requests will fetch final URL)
+    try:
+        r2 = requests.get(link, headers=headers, allow_redirects=True, timeout=10)
+        final = getattr(r2, "url", None)
+        if final and final != link:
+            return final, None
+    except Exception:
+        pass
+
+    return None, "❌ shorter.me: could not extract original URL."
 
 
 
@@ -1134,6 +1381,12 @@ def auto_detect_bypass(link: str):
     
     if "is.gd" in link_lower:
         return bypass_isgd(link)
+    
+    if "rebrand.ly" in link_lower or "rebrandly.com" in link_lower:
+        return bypass_rebrandly(link)
+    
+    if "shorter.me" in link_lower:
+        return bypass_shorterme(link)
 
     return None, "❌ Unsupported platform. Add support for this service."
 
