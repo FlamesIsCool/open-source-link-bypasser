@@ -6,6 +6,8 @@ import re
 from urllib.parse import urlparse, urljoin, quote_plus, urlencode
 import base64
 import re
+import asyncio
+from playwright.async_api import async_playwright
 
 # Playwright import used only in sub4unlock function to avoid import-time errors
 try:
@@ -687,42 +689,12 @@ def bypass_adfoc(link: str):
     dbg = (dbg[:1000] + "...") if len(dbg) > 1000 else dbg
     return None, f"❌ adfoc: could not extract skip/final link. debug: {dbg}"
 
-def bypass_linkvertise_simple(link: str):
-    """
-    Simple Linkvertise "replace domain" bypass.
-    Example: https://linkvertise.com/168072/BG -> https://linkvertise.lol/168072/BG
-    Returns (final_url, error) like your other handlers.
-    """
-    if not link:
-        return None, "❌ Empty link."
-    # quick normalize
-    link = link.strip()
-    # only replace the host part, keep scheme + path + query + fragment intact
-    try:
-        from urllib.parse import urlparse, urlunparse
+# ----------------------------
+# Linkvertise automated bypass 
+# ----------------------------
 
-        parsed = urlparse(link, scheme="https")
-        # handle inputs like "linkvertise.com/168072/BG" (no scheme)
-        if not parsed.netloc:
-            # parse again by prepending https://
-            parsed = urlparse("https://" + link)
 
-        # if domain contains linkvertise.com -> replace with linkvertise.lol
-        host = parsed.netloc.lower()
-        if "linkvertise.com" in host:
-            new_host = host.replace("linkvertise.com", "linkvertise.lol")
-            new_parsed = parsed._replace(netloc=new_host)
-            new_url = urlunparse(new_parsed)
-            return new_url, None
 
-        # also handle rip.linkvertise.lol already or linkvertise.lol
-        if "linkvertise.lol" in host or "rip.linkvertise.lol" in host:
-            # already good — return original normalized
-            return urlunparse(parsed), None
-
-        return None, "❌ Not a Linkvertise URL."
-    except Exception as e:
-        return None, f"❌ Error: {e}"
 
 # ----------------------------
 # JustPaste.it handler
@@ -1023,6 +995,67 @@ def register_bypass_routes(app, namespace):
         if name.startswith("bypass_"):
             print("  • /api/" + name.replace("bypass_", ""))
 
+# ----------------------------
+# is.gd bypass
+# ----------------------------
+
+def bypass_isgd(link: str):
+    """
+    Bypass / unshorten an is.gd short link.
+    Returns the original destination URL shown in <div id="origurl">.
+    Example: https://is.gd/hiir0o -> https://linkvertise.com/212414/poppy-playtime-addon
+    """
+    if not link:
+        return None, "❌ Empty is.gd link."
+
+    # Normalize link (add scheme if missing)
+    if not link.startswith("http"):
+        link = "https://" + link
+
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Referer": "https://is.gd/"
+    }
+
+    try:
+        res = requests.get(link, headers=headers, timeout=10)
+        res.raise_for_status()
+    except Exception as e:
+        return None, f"❌ is.gd request error: {e}"
+
+    html = res.text
+
+    # --- Method 1: scrape <div id="origurl">Your shortened URL goes to: <URL> ---
+    if BS4_AVAILABLE:
+        try:
+            soup = BeautifulSoup(html, "html.parser")
+            div = soup.find("div", id="origurl")
+            if div and "goes to:" in div.text:
+                # Extract URL part after "goes to:"
+                text = div.text.strip()
+                m = re.search(r'goes to:\s*(https?://\S+)', text)
+                if m:
+                    return m.group(1).strip(), None
+        except Exception:
+            pass
+
+    # --- Method 2: regex fallback ---
+    m = re.search(r'Your shortened URL goes to:\s*(https?://[^\s"<]+)', html)
+    if m:
+        return m.group(1).strip(), None
+
+    # --- Method 3: HEAD request follow redirects (final fallback) ---
+    try:
+        head = requests.head(link, allow_redirects=True, timeout=8)
+        if head.url and head.url != link:
+            return head.url, None
+    except Exception:
+        pass
+
+    return None, "❌ is.gd: could not extract original URL."
+
+
 
 # ----------------------------
 # Root route (for HTML UI)
@@ -1098,10 +1131,9 @@ def auto_detect_bypass(link: str):
 
     if "link-unlock.com" in link_lower or "api.link-unlock.com" in link_lower:
         return bypass_link_unlock(link)
-
-    if "linkvertise" in link_lower:
-        return bypass_linkvertise_simple(link)
-
+    
+    if "is.gd" in link_lower:
+        return bypass_isgd(link)
 
     return None, "❌ Unsupported platform. Add support for this service."
 
@@ -1125,9 +1157,10 @@ def home():
 # ----------------------------
 # Run
 # ---------------------------
-# only run the dev server when executed directly (local dev)
 if __name__ == "__main__":
+    # Auto-register all bypass routes before starting Flask
+    register_bypass_routes(app, globals())
+
     import os
     PORT = int(os.environ.get("PORT", 5004))
-    # debug=True is fine for local dev only
     app.run(host="0.0.0.0", port=PORT, debug=True)
