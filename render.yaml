@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: bypass-town
+    env: python
+    buildCommand: |
+      pip install -r requirements.txt
+      playwright install chromium
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    plan: free
