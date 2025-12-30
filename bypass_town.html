@@ -1,1164 +1,388 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>bypass.town - Premium Link Bypasser</title>
-    
-    <!-- Premium Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23ffffff'/%3E%3Cstop offset='100%25' style='stop-color:%23888888'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='50' cy='50' r='45' fill='url(%23g)' stroke='%23000' stroke-width='3'/%3E%3Cpath d='M25 40h20v8H25zm30 0h20v8H55zM25 52h50v8H25z' fill='%23000'/%3E%3C/svg%3E">
-    
-    <!-- Premium Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html {
-            scroll-behavior: smooth;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: radial-gradient(ellipse at top, #0f0f0f 0%, #000000 100%);
-            color: #ffffff;
-            line-height: 1.6;
-            overflow-x: hidden;
-            position: relative;
-        }
-
-        /* Premium grain texture overlay */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.02) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.02) 0%, transparent 50%),
-                radial-gradient(circle at 40% 80%, rgba(255, 255, 255, 0.02) 0%, transparent 50%);
-            pointer-events: none;
-            z-index: 1;
-        }
-
-        /* Luxury noise texture */
-        body::after {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image: 
-                repeating-linear-gradient(
-                    0deg,
-                    transparent,
-                    transparent 2px,
-                    rgba(255, 255, 255, 0.005) 2px,
-                    rgba(255, 255, 255, 0.005) 4px
-                ),
-                repeating-linear-gradient(
-                    90deg,
-                    transparent,
-                    transparent 2px,
-                    rgba(255, 255, 255, 0.005) 2px,
-                    rgba(255, 255, 255, 0.005) 4px
-                );
-            pointer-events: none;
-            z-index: 1;
-        }
-
-        /* Premium animated background */
-        .bg-animation {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-            overflow: hidden;
-        }
-
-        .bg-animation::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: 
-                conic-gradient(from 0deg at 50% 50%, 
-                    transparent 0deg, 
-                    rgba(255, 255, 255, 0.02) 60deg, 
-                    transparent 120deg, 
-                    rgba(255, 255, 255, 0.01) 180deg, 
-                    transparent 240deg, 
-                    rgba(255, 255, 255, 0.02) 300deg, 
-                    transparent 360deg
-                );
-            animation: rotate 60s linear infinite;
-        }
-
-        .bg-animation::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.01) 0%, transparent 50%),
-                radial-gradient(circle at 75% 75%, rgba(255, 255, 255, 0.008) 0%, transparent 50%),
-                radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.005) 0%, transparent 70%);
-            animation: pulse 8s ease-in-out infinite alternate;
-        }
-
-        @keyframes rotate {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        @keyframes pulse {
-            0% { opacity: 0.3; }
-            100% { opacity: 1; }
-        }
-
-        /* Floating particles */
-        .particles {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-            pointer-events: none;
-        }
-
-        .particle {
-            position: absolute;
-            width: 2px;
-            height: 2px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            animation: float 20s linear infinite;
-        }
-
-        .particle:nth-child(1) { left: 10%; animation-delay: 0s; animation-duration: 25s; }
-        .particle:nth-child(2) { left: 20%; animation-delay: 2s; animation-duration: 30s; }
-        .particle:nth-child(3) { left: 30%; animation-delay: 4s; animation-duration: 22s; }
-        .particle:nth-child(4) { left: 40%; animation-delay: 6s; animation-duration: 28s; }
-        .particle:nth-child(5) { left: 50%; animation-delay: 8s; animation-duration: 26s; }
-        .particle:nth-child(6) { left: 60%; animation-delay: 10s; animation-duration: 24s; }
-        .particle:nth-child(7) { left: 70%; animation-delay: 12s; animation-duration: 32s; }
-        .particle:nth-child(8) { left: 80%; animation-delay: 14s; animation-duration: 29s; }
-        .particle:nth-child(9) { left: 90%; animation-delay: 16s; animation-duration: 27s; }
-
-        @keyframes float {
-            0% {
-                transform: translateY(100vh) rotate(0deg);
-                opacity: 0;
-            }
-            10% {
-                opacity: 1;
-            }
-            90% {
-                opacity: 1;
-            }
-            100% {
-                transform: translateY(-100px) rotate(360deg);
-                opacity: 0;
-            }
-        }
-
-        /* Premium Header */
-        header {
-            position: fixed;
-            top: 0;
-            width: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(40px) saturate(180%);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 
-                0 8px 32px rgba(0, 0, 0, 0.3),
-                inset 0 1px 0 rgba(255, 255, 255, 0.05);
-            z-index: 1000;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, 
-                rgba(255, 255, 255, 0.02) 0%, 
-                transparent 50%, 
-                rgba(255, 255, 255, 0.01) 100%);
-            pointer-events: none;
-        }
-
-        nav {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 1.5rem 3rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: relative;
-            z-index: 2;
-        }
-
-        .logo {
-            font-size: 1.8rem;
-            font-weight: 900;
-            color: #ffffff;
-            text-decoration: none;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            letter-spacing: -0.02em;
-            position: relative;
-        }
-
-        .logo::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: linear-gradient(90deg, #ffffff, rgba(255, 255, 255, 0.3));
-            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .logo:hover {
-            transform: translateY(-1px);
-            text-shadow: 
-                0 0 30px rgba(255, 255, 255, 0.4),
-                0 0 60px rgba(255, 255, 255, 0.2);
-        }
-
-        .logo:hover::after {
-            width: 100%;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 3rem;
-            list-style: none;
-        }
-
-        .nav-links a {
-            color: rgba(255, 255, 255, 0.7);
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 0.95rem;
-            letter-spacing: 0.02em;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-        }
-
-        .nav-links a::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            opacity: 0;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            transform: scale(0.8);
-        }
-
-        .nav-links a::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 50%;
-            width: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, #ffffff, transparent);
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            transform: translateX(-50%);
-        }
-
-        .nav-links a:hover {
-            color: #ffffff;
-            text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
-            transform: translateY(-1px);
-        }
-
-        .nav-links a:hover::before {
-            opacity: 1;
-            transform: scale(1);
-        }
-
-        .nav-links a:hover::after {
-            width: 80%;
-        }
-
-        /* Premium Hero Section */
-        .hero {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 0 3rem;
-            position: relative;
-            z-index: 10;
-        }
-
-        .hero-content {
-            max-width: 1000px;
-            animation: luxuryFadeIn 1.2s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-        }
-
-        .hero-content::before {
-            content: '';
-            position: absolute;
-            top: -50px;
-            left: -50px;
-            right: -50px;
-            bottom: -50px;
-            background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.02) 0%, transparent 70%);
-            border-radius: 50px;
-            z-index: -1;
-        }
-
-        @keyframes luxuryFadeIn {
-            0% {
-                opacity: 0;
-                transform: translateY(60px) scale(0.95);
-                filter: blur(10px);
-            }
-            50% {
-                opacity: 0.8;
-                filter: blur(2px);
-            }
-            100% {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-                filter: blur(0);
-            }
-        }
-
-        .hero h1 {
-            font-size: clamp(4rem, 10vw, 8rem);
-            font-weight: 900;
-            margin-bottom: 2rem;
-            background: linear-gradient(135deg, 
-                #ffffff 0%, 
-                rgba(255, 255, 255, 0.9) 25%,
-                rgba(255, 255, 255, 0.7) 50%,
-                rgba(255, 255, 255, 0.9) 75%,
-                #ffffff 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            line-height: 0.9;
-            letter-spacing: -0.04em;
-            text-shadow: 0 0 100px rgba(255, 255, 255, 0.1);
-            position: relative;
-        }
-
-        .hero h1::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, 
-                rgba(255, 255, 255, 0.1) 0%, 
-                transparent 50%, 
-                rgba(255, 255, 255, 0.05) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            animation: shimmer 3s ease-in-out infinite;
-        }
-
-        @keyframes shimmer {
-            0%, 100% { opacity: 0; }
-            50% { opacity: 1; }
-        }
-
-        .hero p {
-            font-size: clamp(1.3rem, 3vw, 1.8rem);
-            color: rgba(255, 255, 255, 0.8);
-            margin-bottom: 4rem;
-            font-weight: 300;
-            line-height: 1.6;
-            letter-spacing: 0.01em;
-            max-width: 700px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        /* Premium Bypass Form */
-        .bypass-form {
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 32px;
-            padding: 4rem;
-            margin: 3rem auto;
-            max-width: 700px;
-            backdrop-filter: blur(60px) saturate(180%);
-            box-shadow: 
-                0 32px 64px rgba(0, 0, 0, 0.4),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1),
-                0 0 0 1px rgba(255, 255, 255, 0.02);
-            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .bypass-form::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, 
-                rgba(255, 255, 255, 0.03) 0%, 
-                transparent 50%, 
-                rgba(255, 255, 255, 0.01) 100%);
-            pointer-events: none;
-        }
-
-        .bypass-form::after {
-            content: '';
-            position: absolute;
-            top: -2px;
-            left: -2px;
-            right: -2px;
-            bottom: -2px;
-            background: linear-gradient(45deg, 
-                rgba(255, 255, 255, 0.1) 0%, 
-                transparent 25%, 
-                transparent 75%, 
-                rgba(255, 255, 255, 0.1) 100%);
-            border-radius: 32px;
-            z-index: -1;
-            opacity: 0;
-            transition: opacity 0.6s ease;
-        }
-
-        .bypass-form:hover {
-            transform: translateY(-8px) scale(1.02);
-            box-shadow: 
-                0 48px 96px rgba(0, 0, 0, 0.5),
-                inset 0 1px 0 rgba(255, 255, 255, 0.15),
-                0 0 0 1px rgba(255, 255, 255, 0.05);
-            border-color: rgba(255, 255, 255, 0.15);
-        }
-
-        .bypass-form:hover::after {
-            opacity: 1;
-        }
-
-        .form-group {
-            margin-bottom: 3rem;
-            position: relative;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 1rem;
-            font-weight: 600;
-            color: rgba(255, 255, 255, 0.9);
-            font-size: 1.1rem;
-            letter-spacing: 0.02em;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 1.5rem 2rem;
-            background: rgba(0, 0, 0, 0.3);
-            border: 2px solid rgba(255, 255, 255, 0.08);
-            border-radius: 20px;
-            color: #ffffff;
-            font-size: 1.1rem;
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 500;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            backdrop-filter: blur(20px);
-            box-shadow: 
-                inset 0 2px 4px rgba(0, 0, 0, 0.2),
-                0 0 0 1px rgba(255, 255, 255, 0.02);
-            position: relative;
-            z-index: 2;
-        }
-
-        .form-group input::placeholder {
-            color: rgba(255, 255, 255, 0.4);
-            font-weight: 400;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: rgba(255, 255, 255, 0.3);
-            background: rgba(0, 0, 0, 0.5);
-            box-shadow: 
-                inset 0 2px 4px rgba(0, 0, 0, 0.3),
-                0 0 0 1px rgba(255, 255, 255, 0.1),
-                0 0 40px rgba(255, 255, 255, 0.1),
-                0 8px 32px rgba(0, 0, 0, 0.3);
-            transform: translateY(-2px);
-        }
-
-        .form-group input:focus::placeholder {
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        .bypass-btn {
-            width: 100%;
-            padding: 1.8rem 3rem;
-            background: linear-gradient(135deg, 
-                #ffffff 0%, 
-                rgba(255, 255, 255, 0.95) 25%,
-                rgba(255, 255, 255, 0.9) 50%,
-                rgba(255, 255, 255, 0.95) 75%,
-                #ffffff 100%);
-            color: #000000;
-            border: none;
-            border-radius: 20px;
-            font-size: 1.2rem;
-            font-weight: 800;
-            cursor: pointer;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 
-                0 8px 32px rgba(255, 255, 255, 0.2),
-                inset 0 1px 0 rgba(255, 255, 255, 0.3),
-                0 0 0 1px rgba(255, 255, 255, 0.1);
-        }
-
-        .bypass-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, 
-                transparent, 
-                rgba(255, 255, 255, 0.2), 
-                transparent);
-            transition: left 0.6s ease;
-        }
-
-        .bypass-btn::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, 
-                rgba(0, 0, 0, 0.05) 0%, 
-                transparent 50%, 
-                rgba(0, 0, 0, 0.02) 100%);
-            opacity: 0;
-            transition: opacity 0.4s ease;
-        }
-
-        .bypass-btn:hover {
-            transform: translateY(-4px) scale(1.02);
-            box-shadow: 
-                0 20px 60px rgba(255, 255, 255, 0.3),
-                inset 0 1px 0 rgba(255, 255, 255, 0.4),
-                0 0 0 1px rgba(255, 255, 255, 0.2);
-            background: linear-gradient(135deg, 
-                #ffffff 0%, 
-                rgba(255, 255, 255, 0.98) 25%,
-                rgba(255, 255, 255, 0.95) 50%,
-                rgba(255, 255, 255, 0.98) 75%,
-                #ffffff 100%);
-        }
-
-        .bypass-btn:hover::before {
-            left: 100%;
-        }
-
-        .bypass-btn:hover::after {
-            opacity: 1;
-        }
-
-        .bypass-btn:active {
-            transform: translateY(-2px) scale(1.01);
-        }
-
-        .bypass-btn:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        /* Premium Features Section */
-        .features {
-            padding: 8rem 3rem;
-            max-width: 1400px;
-            margin: 0 auto;
-            position: relative;
-            z-index: 10;
-        }
-
-        .features h2 {
-            font-size: clamp(3rem, 6vw, 5rem);
-            font-weight: 900;
-            text-align: center;
-            margin-bottom: 6rem;
-            background: linear-gradient(135deg, 
-                #ffffff 0%, 
-                rgba(255, 255, 255, 0.8) 50%,
-                #ffffff 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            letter-spacing: -0.02em;
-            position: relative;
-        }
-
-        .features h2::after {
-            content: '';
-            position: absolute;
-            bottom: -20px;
-            left: 50%;
-            width: 100px;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, #ffffff, transparent);
-            transform: translateX(-50%);
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 3rem;
-        }
-
-        .feature-card {
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 24px;
-            padding: 3.5rem;
-            text-align: center;
-            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-            backdrop-filter: blur(40px) saturate(180%);
-            box-shadow: 
-                0 16px 32px rgba(0, 0, 0, 0.3),
-                inset 0 1px 0 rgba(255, 255, 255, 0.05);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .feature-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, 
-                rgba(255, 255, 255, 0.02) 0%, 
-                transparent 50%, 
-                rgba(255, 255, 255, 0.01) 100%);
-            pointer-events: none;
-        }
-
-        .feature-card::after {
-            content: '';
-            position: absolute;
-            top: -2px;
-            left: -2px;
-            right: -2px;
-            bottom: -2px;
-            background: linear-gradient(45deg, 
-                rgba(255, 255, 255, 0.1) 0%, 
-                transparent 25%, 
-                transparent 75%, 
-                rgba(255, 255, 255, 0.1) 100%);
-            border-radius: 24px;
-            z-index: -1;
-            opacity: 0;
-            transition: opacity 0.6s ease;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-12px) scale(1.02);
-            border-color: rgba(255, 255, 255, 0.2);
-            box-shadow: 
-                0 32px 64px rgba(0, 0, 0, 0.4),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1),
-                0 0 0 1px rgba(255, 255, 255, 0.05);
-        }
-
-        .feature-card:hover::after {
-            opacity: 1;
-        }
-
-        .feature-icon {
-            font-size: 4rem;
-            margin-bottom: 2rem;
-            display: block;
-            filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.1));
-            transition: all 0.4s ease;
-        }
-
-        .feature-card:hover .feature-icon {
-            transform: scale(1.1);
-            filter: drop-shadow(0 0 30px rgba(255, 255, 255, 0.2));
-        }
-
-        .feature-card h3 {
-            font-size: 1.8rem;
-            font-weight: 800;
-            margin-bottom: 1.5rem;
-            color: #ffffff;
-            letter-spacing: -0.01em;
-        }
-
-        .feature-card p {
-            color: rgba(255, 255, 255, 0.7);
-            line-height: 1.7;
-            font-size: 1.1rem;
-            font-weight: 300;
-        }
-
-        /* Premium Footer */
-        footer {
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(60px) saturate(180%);
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-            padding: 4rem 3rem 3rem;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        footer::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, 
-                rgba(255, 255, 255, 0.02) 0%, 
-                transparent 50%, 
-                rgba(255, 255, 255, 0.01) 100%);
-            pointer-events: none;
-        }
-
-        .footer-content {
-            max-width: 1400px;
-            margin: 0 auto;
-            position: relative;
-            z-index: 2;
-        }
-
-        .footer-links {
-            display: flex;
-            justify-content: center;
-            gap: 3rem;
-            margin-bottom: 3rem;
-            flex-wrap: wrap;
-        }
-
-        .footer-links a {
-            color: rgba(255, 255, 255, 0.6);
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 1rem;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-        }
-
-        .footer-links a::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            opacity: 0;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            transform: scale(0.8);
-        }
-
-        .footer-links a:hover {
-            color: #ffffff;
-            text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
-        }
-
-        .footer-links a:hover::before {
-            opacity: 1;
-            transform: scale(1);
-        }
-
-        .copyright {
-            color: rgba(255, 255, 255, 0.4);
-            font-size: 0.95rem;
-            font-weight: 300;
-            letter-spacing: 0.02em;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .nav-links {
-                display: none;
-            }
-            
-            .bypass-form {
-                padding: 2rem;
-                margin: 1rem;
-            }
-            
-            .features {
-                padding: 4rem 1rem;
-            }
-        }
-
-        /* Loading animation */
-        .loading {
-            display: none;
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(0, 0, 0, 0.3);
-            border-top: 2px solid #000000;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-left: 10px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .result {
-            margin-top: 2rem;
-            padding: 1rem;
-            border-radius: 8px;
-            display: none;
-        }
-
-        .result.success {
-            background: rgba(34, 197, 94, 0.1);
-            border: 1px solid rgba(34, 197, 94, 0.3);
-            color: #22c55e;
-        }
-
-        .result.error {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            color: #ef4444;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>Bypass.Town</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+:root {
+  --bg: #040611;
+  --card: rgba(15,23,42,.88);
+  --border: rgba(148,163,184,.15);
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --accent: #8b5cf6;
+  --accent2: #6366f1;
+  --success: #22c55e;
+  --error: #ef4444;
+  --link: #93c5fd;
+}
+
+* {
+  box-sizing: border-box;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(139,92,246,.15), transparent 60%),
+    radial-gradient(800px 400px at 80% 110%, rgba(99,102,241,.12), transparent 60%),
+    var(--bg);
+  overflow: hidden;
+  color: var(--text);
+}
+
+/* --------- NOISE OVERLAY --------- */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* --------- PARTICLES --------- */
+canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+
+/* --------- CURSOR --------- */
+.cursor {
+  position: fixed;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139,92,246,.5), transparent 70%);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  mix-blend-mode: screen;
+}
+
+/* --------- LAYOUT --------- */
+.wrapper {
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+}
+
+.card {
+  width: 100%;
+  max-width: 760px;
+  background: var(--card);
+  backdrop-filter: blur(20px);
+  border-radius: 26px;
+  border: 1px solid var(--border);
+  box-shadow:
+    0 40px 120px rgba(0,0,0,.8),
+    inset 0 1px 0 rgba(255,255,255,.04);
+  padding: 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* shimmer highlight */
+.card::before {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  background: linear-gradient(120deg, transparent 40%, rgba(255,255,255,.05), transparent 60%);
+  animation: shimmer 10s linear infinite;
+}
+
+@keyframes shimmer {
+  from { transform: translateX(-40%) }
+  to { transform: translateX(40%) }
+}
+
+h1 {
+  margin: 0;
+  font-size: 2.3rem;
+  font-weight: 800;
+  letter-spacing: -.02em;
+}
+
+.subtitle {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: .95rem;
+}
+
+/* --------- INPUT --------- */
+form {
+  margin-top: 28px;
+  display: flex;
+  gap: 14px;
+}
+
+input {
+  flex: 1;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: rgba(2,6,23,.9);
+  color: var(--text);
+  font-size: .95rem;
+  outline: none;
+}
+
+input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(139,92,246,.3);
+}
+
+button {
+  padding: 16px 28px;
+  border-radius: 16px;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: white;
+  box-shadow: 0 14px 50px rgba(139,92,246,.55);
+  position: relative;
+  overflow: hidden;
+}
+
+button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--x) var(--y), rgba(255,255,255,.35), transparent 60%);
+  opacity: 0;
+  transition: opacity .2s;
+}
+
+button:hover::after {
+  opacity: 1;
+}
+
+/* --------- RESULT --------- */
+.result {
+  margin-top: 26px;
+  padding: 20px;
+  border-radius: 18px;
+  background: rgba(2,6,23,.92);
+  border: 1px solid var(--border);
+  animation: pop .35s ease;
+}
+
+@keyframes pop {
+  from { transform: scale(.96); opacity: 0 }
+  to { transform: scale(1); opacity: 1 }
+}
+
+.result.success {
+  border-color: rgba(34,197,94,.4);
+}
+
+.result.error {
+  border-color: rgba(239,68,68,.4);
+  color: var(--error);
+}
+
+.link a {
+  color: var(--link);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.link a:hover {
+  text-decoration: underline;
+}
+
+.copy {
+  margin-top: 14px;
+  background: transparent;
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+
+/* --------- SUPPORTED SITES --------- */
+.supported {
+  margin-top: 34px;
+}
+
+.supported-title {
+  font-size: .85rem;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.badge {
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: .8rem;
+  background: rgba(2,6,23,.85);
+  border: 1px solid var(--border);
+  color: #c7d2fe;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+
+.badge:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(139,92,246,.35);
+}
+
+/* --------- FOOTER --------- */
+footer {
+  margin-top: 22px;
+  font-size: .75rem;
+  color: #6b7280;
+  text-align: right;
+}
+
+/* Allow clicking through visual layers */
+canvas,
+.cursor,
+body::after,
+.card::before {
+  pointer-events: none;
+}
+
+</style>
 </head>
-<body>
-    <div class="bg-animation"></div>
-    <div class="particles">
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-    </div>
-    
-    <header>
-        <nav>
-            <a href="#" class="logo">bypass.town</a>
-            <ul class="nav-links">
-                <li><a href="#home">Home</a></li>
-                <li><a href="#features">Features</a></li>
-                <li><a href="#about">About</a></li>
-                <li><a href="#contact">Contact</a></li>
-            </ul>
-        </nav>
-    </header>
 
-    <main>
-        <section id="home" class="hero">
-            <div class="hero-content">
-                <h1>BYPASS<br>ANYTHING</h1>
-                <p>Skip the wait, skip the ads, get straight to your content. The fastest and most reliable link bypasser on the web.</p>
-                
-<div class="bypass-form">
-    <form method="post">
-        <div class="form-group">
-            <label for="linkInput">Enter Link to Bypass</label>
-            <input type="url" id="linkInput" name="link" placeholder="https://example.com/shortened-link" required>
-        </div>
-        <button type="submit" class="bypass-btn">
-            Bypass Now
-            <span class="loading"></span>
-        </button>
+<body>
+
+<canvas id="particles"></canvas>
+<div class="cursor"></div>
+
+<div class="wrapper">
+  <div class="card">
+    <h1>Bypass.Town</h1>
+    <div class="subtitle">Paste a locked or shortened link</div>
+
+    <form method="POST">
+      <input name="link" placeholder="https://example.com/locked" required>
+      <button type="submit">Bypass</button>
     </form>
 
-<!-- Show result if Flask gave one -->
-{% if paste_preview %}
-<div class="result success" style="display:block;">
-    <strong style="color:#00ff80;">✅ Bypass Successful!</strong><br>
-    <div class="paste-card" style="
-        background: rgba(255,255,255,0.05);
-        padding: 12px;
-        border-radius: 10px;
-        backdrop-filter: blur(10px);
-        margin-top: 8px;
-        color: white;
-    ">
-        <strong>Paste Preview:</strong>
-        <pre style="white-space: pre-wrap;
-            overflow:auto;
-            max-height: 300px;
-            margin-top: 6px;
-            color: white;
-            font-family: 'Consolas', monospace;
-        ">{{ paste_preview }}</pre>
-        <p style="margin-top:8px;">
-            <a href="{{ paste_full_link }}" target="_blank" style="color:white; text-decoration: underline;">
-                View full paste
-            </a>
-        </p>
-    </div>
-</div>
+    {% if error %}
+      <div class="result error">{{ error }}</div>
+    {% endif %}
 
-{% elif result and (result.type|default('') == 'locker' or result.platform|default('') ) %}
-<!-- Locker / Locker-like structured result (no raw dict printing) -->
-<div class="result success" style="display:block;">
-    <strong style="color:#00ff80;">✅ Locker Detected</strong><br>
-    <div class="paste-card" style="
-        background: rgba(255,255,255,0.04);
-        padding: 14px;
-        border-radius: 10px;
-        backdrop-filter: blur(10px);
-        margin-top: 8px;
-        color: white;
-    ">
-        <h3 style="margin:0 0 6px 0; color:#fff;">{{ result.platform|default('Locker') }} <small style="color:#cfcfdf;font-weight:400;">checkpoint</small></h3>
-        <p style="margin:6px 0 10px 0;color:#ddd;">{{ result.message|default('Complete the actions on the provider page to unlock the content.') }}</p>
-
-        <div style="display:flex; gap:8px; align-items:center;">
-            <a href="{{ result.url }}" target="_blank" class="btn" style="background:#1f1f2a;color:white;padding:8px 12px;border-radius:8px;text-decoration:none;">
-                Open link (complete actions)
-            </a>
-
-            <!-- Optional diagnostics button — you can wire this to an endpoint later -->
-            <button onclick="window.open('{{ result.url }}', '_blank')" class="btn" style="background:transparent;border:1px solid rgba(255,255,255,0.08);color:white;padding:8px 12px;border-radius:8px;">
-                Open in new tab
-            </button>
+    {% if result %}
+      <div class="result success">
+        <div class="link">
+          <a href="{{ result }}" target="_blank">{{ result }}</a>
         </div>
+        <button class="copy" type="button"
+          onclick="navigator.clipboard.writeText('{{ result }}')">
+          Copy Link
+        </button>
+      </div>
+    {% endif %}
 
-        {% if result.tips %}
-        <ul style="margin-top:10px;color:#ddd;">
-            {% for tip in result.tips %}
-            <li>{{ tip }}</li>
-            {% endfor %}
-        </ul>
-        {% endif %}
+    <div class="supported">
+      <div class="supported-title">Supported services</div>
+      <div class="badges">
+        <span class="badge">YTSUBME</span>
+        <span class="badge">UnlockNow</span>
+        <span class="badge">SubFinal</span>
+        <span class="badge">Sub2Unlock</span>
+        <span class="badge">Sub4Unlock</span>
+        <span class="badge">Rekonise</span>
+        <span class="badge">PasteDrop</span>
+        <span class="badge">Pastebin</span>
+        <span class="badge">JustPaste</span>
+        <span class="badge">MBoost</span>
+        <span class="badge">Boost</span>
+        <span class="badge">Bitly</span>
+        <span class="badge">AdFoc.us</span>
+        <span class="badge">BSTSHRT</span>
+        <span class="badge">Link-Unlock</span>
+        <span class="badge">is.gd</span>
+        <span class="badge">Rebrandly</span>
+        <span class="badge">Shorter.me</span>
+        <span class="badge">Tiny.cc</span>
+        <span class="badge">TinyLink</span>
+        <span class="badge">TinyURL</span>
+        <span class="badge">v.gd</span>
+        <span class="badge">Lockr</span>
+        <span class="badge">ouo.io</span>
+        <span class="badge">Shortest.link</span>
+        <span class="badge">1Link.club</span>
+        <span class="badge">AnonymNinja</span>
+        <span class="badge">CB.run</span>
+        <span class="badge">ScriptPastebins</span>
+      </div>
     </div>
+
+    <footer>Bypass.Town</footer>
+  </div>
 </div>
 
-{% elif result %}
-<!-- Plain final link result -->
-<div class="result success" style="display:block;">
-    <strong style="color:#00ff80;">✅ Bypass Successful!</strong><br>
-    <a href="{{ result }}" target="_blank" style="color:white; word-break:break-all;">{{ result }}</a>
-</div>
+<script>
+/* Cursor */
+const cursor = document.querySelector(".cursor");
+document.addEventListener("mousemove", e => {
+  cursor.style.left = e.clientX + "px";
+  cursor.style.top = e.clientY + "px";
+});
 
-{% elif error %}
-<div class="result error" style="display:block;">
-    <strong>❌ Error:</strong><br>
-    <span style="color:#ff8080;">{{ error }}</span>
-</div>
-{% endif %}
-</div>
-            </div>
+/* Button light */
+document.querySelectorAll("button").forEach(btn => {
+  btn.addEventListener("mousemove", e => {
+    const r = btn.getBoundingClientRect();
+    btn.style.setProperty("--x", `${e.clientX - r.left}px`);
+    btn.style.setProperty("--y", `${e.clientY - r.top}px`);
+  });
+});
 
+/* Particles */
+const canvas = document.getElementById("particles");
+const ctx = canvas.getContext("2d");
+let w, h;
 
-        </section>
+function resize() {
+  w = canvas.width = window.innerWidth;
+  h = canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
 
-        <section id="features" class="features">
-            <h2>Why Choose bypass.town?</h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <span class="feature-icon">⚡</span>
-                    <h3>Lightning Fast</h3>
-                    <p>Bypass links in seconds, not minutes. Our optimized servers ensure the fastest processing times.</p>
-                </div>
-                <div class="feature-card">
-                    <span class="feature-icon">🔒</span>
-                    <h3>100% Secure</h3>
-                    <p>Your privacy matters. We don't store your links or track your activity. Everything is processed securely.</p>
-                </div>
-                <div class="feature-card">
-                    <span class="feature-icon">🌐</span>
-                    <h3>Universal Support</h3>
-                    <p>Works with all major link shorteners and ad-supported platforms. No limits, no restrictions.</p>
-                </div>
-            </div>
-        </section>
-    </main>
+const particles = Array.from({length: 90}, () => ({
+  x: Math.random()*w,
+  y: Math.random()*h,
+  r: Math.random()*2 + 1,
+  vx: (Math.random()-.5)*.25,
+  vy: (Math.random()-.5)*.25
+}));
 
-    <section id="supported" class="features">
-    <h2>Supported Websites</h2>
-    <div class="features-grid">
-        <div class="feature-card"><h3>ytsubme.com</h3></div>
-        <div class="feature-card"><h3>unlocknow.net</h3></div>
-        <div class="feature-card"><h3>subfinal.com</h3></div>
-        <div class="feature-card"><h3>sub2unlock.net</h3></div>
-        <div class="feature-card"><h3>sub4unlock.io</h3></div>
-        <div class="feature-card"><h3>rekonise.com</h3></div>
-        <div class="feature-card"><h3>paste-drop.com</h3></div>
-        <div class="feature-card"><h3>pastebin.com</h3></div>
-        <div class="feature-card"><h3>justpaste.it</h3></div>
-        <div class="feature-card"><h3>mboost.me</h3></div>
-        <div class="feature-card"><h3>boost.ink</h3></div>
-        <div class="feature-card"><h3>bst.gg</h3></div>
-        <div class="feature-card"><h3>booo.st</h3></div>
-        <div class="feature-card"><h3>bst.wtf</h3></div>
-        <div class="feature-card"><h3>bit.ly</h3></div>
-        <div class="feature-card"><h3>j.mp</h3></div>
-        <div class="feature-card"><h3>bitly.com</h3></div>
-        <div class="feature-card"><h3>adfoc.us</h3></div>
-        <div class="feature-card"><h3>bstshrt.com</h3></div>
-        <div class="feature-card"><h3>link-unlock.com</h3></div>
-        <div class="feature-card"><h3>is.gd</h3></div>
-        <div class="feature-card"><h3>rebrand.ly</h3></div>
-        <div class="feature-card"><h3>rebrandly.com</h3></div>
-        <div class="feature-card"><h3>shorter.me</h3></div>
-        <div class="feature-card"><h3>More Soon..</h3></div>
-    </div>
-</section>
+function draw() {
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle = "rgba(139,92,246,.6)";
+  particles.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    if(p.x<0||p.x>w) p.vx*=-1;
+    if(p.y<0||p.y>h) p.vy*=-1;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fill();
+  });
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
 
-
-    <footer id="contact">
-        <div class="footer-content">
-            <div class="footer-links">
-                <a href="#privacy">Privacy Policy</a>
-                <a href="#terms">Terms of Service</a>
-                <a href="#support">Support</a>
-                <a href="#api">API</a>
-            </div>
-            <div class="copyright">
-                © 2025 bypass.town. All rights reserved.
-            </div>
-        </div>
-    </footer>
-
-    <script>
-        // Smooth scrolling for navigation links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
-            });
-        });
-
-        // Header background on scroll
-        window.addEventListener('scroll', () => {
-            const header = document.querySelector('header');
-            if (window.scrollY > 100) {
-                header.style.background = 'rgba(10, 10, 10, 0.98)';
-            } else {
-                header.style.background = 'rgba(10, 10, 10, 0.95)';
-            }
-        });
-
-        // Form submission
-        document.getElementById('bypassForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const linkInput = document.getElementById('linkInput');
-            const submitBtn = document.querySelector('.bypass-btn');
-            const loading = document.querySelector('.loading');
-            const result = document.getElementById('result');
-            
-            // Show loading state
-            loading.style.display = 'inline-block';
-            submitBtn.disabled = true;
-            result.style.display = 'none';
-            
-            // Simulate bypass process
-            setTimeout(() => {
-                loading.style.display = 'none';
-                submitBtn.disabled = false;
-                
-                // Demo functionality - in real implementation, this would call your bypass API
-                if (linkInput.value.trim()) {
-                    result.className = 'result success';
-                    result.innerHTML = `
-                        <strong>✅ Bypass Successful!</strong><br>
-                        <a href="${linkInput.value}" target="_blank" rel="noopener noreferrer" style="color: #22c55e; text-decoration: underline;">
-                            Click here to access your content
-                        </a>
-                    `;
-                    result.style.display = 'block';
-                } else {
-                    result.className = 'result error';
-                    result.innerHTML = '<strong>❌ Error:</strong> Please enter a valid URL.';
-                    result.style.display = 'block';
-                }
-            }, 2000);
-        });
-
-        // Add entrance animations on scroll
-        const observerOptions = {
-            threshold: 0.1,
-            rootMargin: '0px 0px -50px 0px'
-        };
-
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.style.opacity = '1';
-                    entry.target.style.transform = 'translateY(0)';
-                }
-            });
-        }, observerOptions);
-
-        // Observe feature cards
-        document.querySelectorAll('.feature-card').forEach((card, index) => {
-            card.style.opacity = '0';
-            card.style.transform = 'translateY(50px)';
-            card.style.transition = `all 0.6s ease ${index * 0.2}s`;
-            observer.observe(card);
-        });
-    </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9822e8c3a46699b9',t:'MTc1ODM4Nzk0My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
